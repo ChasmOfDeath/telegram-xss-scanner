@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>XSS Scanner Dashboard</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        h1 {
+            color: #d32f2f;
+            border-bottom: 3px solid #d32f2f;
+            padding-bottom: 15px;
+            margin-bottom: 30px;
+        }
+        .scan-form {
+            background: #f8f9fa;
+            padding: 30px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #333;
+        }
+        input[type="text"], select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        .btn {
+            background: #667eea;
+            color: white;
+            padding: 15px 40px;
+            border: none;
+            border-radius: 5px;
+            font-size: 18px;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+        .btn:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+        }
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .results {
+            margin-top: 30px;
+        }
+        .vuln-card {
+            background: #fff3e0;
+            border-left: 4px solid #ff9800;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .severity-high { border-left-color: #d32f2f; background: #ffebee; }
+        .severity-medium { border-left-color: #ff9800; background: #fff3e0; }
+        .severity-low { border-left-color: #4caf50; background: #e8f5e9; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔒 XSS Scanner Dashboard</h1>
+        
+        <div class="scan-form">
+            <h2>Start New Scan</h2>
+            <form id="scanForm">
+                <div class="form-group">
+                    <label for="target">Target URL:</label>
+                    <input type="text" id="target" name="target" 
+                           placeholder="https://example.com" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="scanType">Scan Type:</label>
+                    <select id="scanType" name="scanType">
+                        <option value="full">Full Scan</option>
+                        <option value="xss">XSS Only</option>
+                        <option value="sql">SQL Injection Only</option>
+                    </select>
+                </div>
+                
+                <button type="submit" class="btn">🚀 Start Scan</button>
+            </form>
+        </div>
+        
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Scanning in progress...</p>
+        </div>
+        
+        <div id="results" class="results"></div>
+    </div>
+    
+    <script>
+        document.getElementById('scanForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const target = document.getElementById('target').value;
+            const scanType = document.getElementById('scanType').value;
+            
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('results').innerHTML = '';
+            
+            try {
+                const response = await fetch('/api/scan', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ target, scanType })
+                });
+                
+                const data = await response.json();
+                displayResults(data);
+            } catch (error) {
+                document.getElementById('results').innerHTML = 
+                    '<p style="color: red;">Error: ' + error.message + '</p>';
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+            }
+        });
+        
+        function displayResults(data) {
+            const resultsDiv = document.getElementById('results');
+            
+            let html = `
+                <h2>Scan Results</h2>
+                <p><strong>Target:</strong> ${data.target}</p>
+                <p><strong>Status:</strong> ${data.status}</p>
+                <p><strong>Vulnerabilities Found:</strong> ${data.count || 0}</p>
+                <hr style="margin: 20px 0;">
+            `;
+            
+            if (data.vulnerabilities && data.vulnerabilities.length > 0) {
+                data.vulnerabilities.forEach((vuln, i) => {
+                    const severity = (vuln.severity || 'MEDIUM').toLowerCase();
+                    html += `
+                        <div class="vuln-card severity-${severity}">
+                            <h3>[${i + 1}] ${vuln.type || 'Unknown'}</h3>
+                            <p><strong>Severity:</strong> ${vuln.severity || 'MEDIUM'}</p>
+                            ${vuln.url ? `<p><strong>URL:</strong> ${vuln.url}</p>` : ''}
+                            ${vuln.parameter ? `<p><strong>Parameter:</strong> ${vuln.parameter}</p>` : ''}
+                            ${vuln.payload ? `<p><strong>Payload:</strong> <code>${vuln.payload}</code></p>` : ''}
+                        </div>
+                    `;
+                });
+            } else {
+                html += '<p style="color: green;">✅ No vulnerabilities found!</p>';
+            }
+            
+            resultsDiv.innerHTML = html;
+        }
+    </script>
+</body>
+</html>
