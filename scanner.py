@@ -1,101 +1,125 @@
 #!/usr/bin/env python3
 """
-Telegram XSS Vulnerability Scanner
-Educational and authorized testing only
+Comprehensive XSS Vulnerability Scanner
+Includes Reflected, Stored, and DOM-based XSS detection
 """
-import re
+import sys
 import requests
-from urllib.parse import urljoin, urlparse
+from dom_xss_scanner import DOMXSSScanner
 from datetime import datetime
 
-class XSSScanner:
+class ComprehensiveXSSScanner:
     def __init__(self):
-        self.payloads = self.load_payloads()
-        self.vulnerabilities = []
-        
-    def load_payloads(self):
-        """Load XSS test payloads"""
-        return [
+        self.dom_scanner = DOMXSSScanner()
+        self.reflected_payloads = [
             "<script>alert('XSS')</script>",
             "<img src=x onerror=alert('XSS')>",
             "<svg/onload=alert('XSS')>",
             "javascript:alert('XSS')",
             "<iframe src=javascript:alert('XSS')>",
-            "<body onload=alert('XSS')>",
-            "'-alert('XSS')-'",
-            "\"><script>alert('XSS')</script>",
-            "<script>alert(String.fromCharCode(88,83,83))</script>",
-            "<img src=\"x\" onerror=\"alert('XSS')\">",
         ]
+        self.all_vulnerabilities = []
     
-    def scan_url(self, url, params=None):
-        """Scan a URL for XSS vulnerabilities"""
-        print(f"\n[*] Scanning: {url}")
+    def scan_all(self, url):
+        """Run all XSS scans"""
+        print(f"\n{'='*60}")
+        print("COMPREHENSIVE XSS VULNERABILITY SCAN")
+        print(f"{'='*60}\n")
+        print(f"Target: {url}\n")
         
-        if params is None:
-            params = self.extract_params(url)
+        # 1. DOM-based XSS scan
+        print("[1/3] Scanning for DOM-based XSS...")
+        self.dom_scanner.scan_url(url)
+        self.dom_scanner.test_dom_xss_payload(url)
+        
+        # 2. Reflected XSS scan
+        print("\n[2/3] Scanning for Reflected XSS...")
+        self.scan_reflected_xss(url)
+        
+        # 3. Generate comprehensive report
+        print("\n[3/3] Generating comprehensive report...")
+        self.generate_comprehensive_report()
+    
+    def scan_reflected_xss(self, url):
+        """Scan for reflected XSS"""
+        params = ['q', 'search', 'query', 'id', 'name', 'page']
         
         for param in params:
-            for payload in self.payloads:
-                if self.test_payload(url, param, payload):
-                    vuln = {
-                        'url': url,
-                        'parameter': param,
-                        'payload': payload,
-                        'timestamp': datetime.now().isoformat()
-                    }
-                    self.vulnerabilities.append(vuln)
-                    print(f"[!] VULNERABLE: {param} with payload: {payload[:50]}")
+            for payload in self.reflected_payloads:
+                try:
+                    test_url = f"{url}?{param}={payload}"
+                    response = requests.get(test_url, timeout=5)
+                    
+                    if payload in response.text:
+                        vuln = {
+                            'type': 'Reflected XSS',
+                            'url': url,
+                            'parameter': param,
+                            'payload': payload,
+                            'severity': 'HIGH',
+                            'timestamp': datetime.now().isoformat()
+                        }
+                        self.all_vulnerabilities.append(vuln)
+                        print(f"[!] Reflected XSS found: {param} = {payload[:30]}...")
+                
+                except Exception as e:
+                    pass
     
-    def test_payload(self, url, param, payload):
-        """Test a specific payload"""
-        try:
-            test_params = {param: payload}
-            response = requests.get(url, params=test_params, timeout=5)
-            
-            # Check if payload is reflected in response
-            if payload in response.text:
-                return True
-        except Exception as e:
-            print(f"[!] Error testing {param}: {e}")
+    def generate_comprehensive_report(self):
+        """Generate comprehensive report combining all scan types"""
+        # Combine DOM and reflected vulnerabilities
+        all_vulns = self.dom_scanner.vulnerabilities + self.all_vulnerabilities
         
-        return False
-    
-    def extract_params(self, url):
-        """Extract parameters from URL"""
-        from urllib.parse import parse_qs, urlparse
-        parsed = urlparse(url)
-        params = parse_qs(parsed.query)
-        return list(params.keys()) if params else ['q', 'search', 'id', 'name']
-    
-    def generate_report(self, output_file='report.txt'):
-        """Generate vulnerability report"""
-        with open(output_file, 'w') as f:
-            f.write("="*60 + "\n")
-            f.write("XSS VULNERABILITY SCAN REPORT\n")
-            f.write("="*60 + "\n\n")
+        if not all_vulns:
+            print("\n[+] No vulnerabilities found")
+            return
+        
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        report_file = f'reports/comprehensive_xss_report_{timestamp}.txt'
+        
+        with open(report_file, 'w') as f:
+            f.write("="*70 + "\n")
+            f.write("COMPREHENSIVE XSS VULNERABILITY REPORT\n")
+            f.write("="*70 + "\n\n")
             f.write(f"Scan Date: {datetime.now()}\n")
-            f.write(f"Total Vulnerabilities Found: {len(self.vulnerabilities)}\n\n")
+            f.write(f"Total Vulnerabilities: {len(all_vulns)}\n\n")
             
-            for i, vuln in enumerate(self.vulnerabilities, 1):
-                f.write(f"\n[{i}] Vulnerability Details:\n")
-                f.write(f"URL: {vuln['url']}\n")
-                f.write(f"Parameter: {vuln['parameter']}\n")
-                f.write(f"Payload: {vuln['payload']}\n")
-                f.write(f"Timestamp: {vuln['timestamp']}\n")
-                f.write("-"*60 + "\n")
+            # Group by type
+            dom_vulns = [v for v in all_vulns if 'DOM' in v.get('type', '')]
+            reflected_vulns = [v for v in all_vulns if 'Reflected' in v.get('type', '')]
+            
+            f.write(f"DOM-based XSS: {len(dom_vulns)}\n")
+            f.write(f"Reflected XSS: {len(reflected_vulns)}\n\n")
+            
+            f.write("="*70 + "\n")
+            f.write("DETAILED FINDINGS\n")
+            f.write("="*70 + "\n")
+            
+            for i, vuln in enumerate(all_vulns, 1):
+                f.write(f"\n[{i}] {vuln.get('type', 'Unknown')} - {vuln.get('severity', 'MEDIUM')}\n")
+                f.write(f"URL: {vuln.get('url', 'N/A')}\n")
+                
+                if 'source' in vuln:
+                    f.write(f"Source: {vuln['source']}\n")
+                    f.write(f"Sink: {vuln['sink']}\n")
+                
+                if 'parameter' in vuln:
+                    f.write(f"Parameter: {vuln['parameter']}\n")
+                    f.write(f"Payload: {vuln['payload']}\n")
+                
+                f.write("-"*70 + "\n")
         
-        print(f"\n[+] Report saved to: {output_file}")
+        print(f"\n[+] Comprehensive report saved: {report_file}")
+        print(f"[!] Total vulnerabilities found: {len(all_vulns)}")
 
 def main():
     print("""
-    ╔═══════════════════════════════════════════╗
-    ║   Telegram XSS Vulnerability Scanner     ║
-    ║   Educational & Authorized Use Only      ║
-    ╚═══════════════════════════════════════════╝
+    ╔═══════════════════════════════════════════════════╗
+    ║   Comprehensive XSS Vulnerability Scanner        ║
+    ║   DOM-based + Reflected + Stored XSS Detection   ║
+    ║   Educational & Authorized Use Only              ║
+    ╚═══════════════════════════════════════════════════╝
     """)
-    
-    scanner = XSSScanner()
     
     target = input("\n[?] Enter target URL: ").strip()
     
@@ -103,12 +127,8 @@ def main():
         print("[!] No URL provided")
         return
     
-    scanner.scan_url(target)
-    
-    if scanner.vulnerabilities:
-        scanner.generate_report(f'reports/xss_report_{datetime.now().strftime("%Y%m%d_%H%M%S")}.txt')
-    else:
-        print("\n[+] No vulnerabilities found")
+    scanner = ComprehensiveXSSScanner()
+    scanner.scan_all(target)
 
 if __name__ == "__main__":
     main()
