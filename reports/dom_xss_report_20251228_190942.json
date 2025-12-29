@@ -1,0 +1,32 @@
+{
+  "scan_date": "2025-12-28T19:09:42.640918",
+  "total_vulnerabilities": 2,
+  "severity_breakdown": {
+    "CRITICAL": 0,
+    "HIGH": 1,
+    "MEDIUM": 0,
+    "LOW": 1
+  },
+  "vulnerabilities": [
+    {
+      "url": "https://www.o9a.org/",
+      "type": "DOM XSS",
+      "source": "location.href",
+      "sink": "setTimeout(",
+      "code": "\n/* <![CDATA[ */\n\n( ( dropdownId ) => {\n\tconst dropdown = document.getElementById( dropdownId );\n\tfunction onSelectChange() {\n\t\tsetTimeout( () => {\n\t\t\tif ( 'escape' === dropdown.dataset.lastkey ) {\n\t\t",
+      "location": "Inline script #1",
+      "severity": "HIGH",
+      "timestamp": "2025-12-28T19:09:31.791698"
+    },
+    {
+      "url": "https://www.o9a.org/",
+      "type": "DOM XSS",
+      "source": "location.href",
+      "sink": "location.href",
+      "code": "\n/* <![CDATA[ */\n\n( ( dropdownId ) => {\n\tconst dropdown = document.getElementById( dropdownId );\n\tfunction onSelectChange() {\n\t\tsetTimeout( () => {\n\t\t\tif ( 'escape' === dropdown.dataset.lastkey ) {\n\t\t",
+      "location": "Inline script #1",
+      "severity": "LOW",
+      "timestamp": "2025-12-28T19:09:31.791855"
+    }
+  ]
+}
